@@ -1,0 +1,30 @@
+let
+    // Start with a base date and time (e.g., midnight of a specific day)
+    BaseTime = #time(0, 0, 0), // Midnight
+    
+    // Generate a list of time values for a 24-hour period in 1-minute increments
+    TimeList = List.Generate(
+        () => BaseTime,
+        each _ < #time(23, 59, 0), // Ensure we cover up to 23:58
+        each _ + #duration(0, 0, 1, 0) // Increment by 1 minute
+    ),
+
+    // Explicitly add an entry for 23:59 to cover all minutes in the 24-hour window
+    #"Explicitly Add Final Minute of Day" = List.Combine({TimeList, {#time(23, 59, 0)}}),
+
+    // Convert the updated list of time values to a table
+    #"Converted to Table" = Table.FromList(#"Explicitly Add Final Minute of Day", Splitter.SplitByNothing(), {"Time"}, null, ExtraValues.Error),
+    
+    // Change the column type to Time
+    #"Changed Type" = Table.TransformColumnTypes(#"Converted to Table",{{"Time", type time}}),
+    
+    // Add a column for the time as text without colons, formatted as a four-digit number
+    #"Added Timekey" = Table.AddColumn(#"Changed Type", "Timekey", each let
+        TimeValue = [Time],
+        Hour = Time.Hour(TimeValue),
+        Minute = Time.Minute(TimeValue),
+        FormattedTime = Text.PadStart(Text.From(Hour), 2, "0") & Text.PadStart(Text.From(Minute), 2, "0")
+    in
+        FormattedTime)
+in
+    #"Added Timekey" // Output the final table
