@@ -1,0 +1,42 @@
+let
+    // Set the start date to 30 days ago and the end date to today
+    StartDate = Date.AddDays(DateTime.Date(DateTime.LocalNow()), -30), 
+    EndDate = DateTime.Date(DateTime.LocalNow()), 
+    
+    // Generate a list of dates from the StartDate to EndDate
+    DatesList = List.Dates(StartDate, Duration.Days(EndDate - StartDate) + 1, #duration(1,0,0,0)),
+    
+    // Convert the list to a table
+    #"Converted to Table" = Table.FromList(DatesList, Splitter.SplitByNothing(), {"Date"}, null, ExtraValues.Error),
+    
+    // Change column type to date
+    #"Changed Type" = Table.TransformColumnTypes(#"Converted to Table", {{"Date", type date}}),
+    
+    // Add columns for Day of Week (Name and Number)
+    #"Inserted Day of Week Name" = Table.AddColumn(#"Changed Type", "Day of Week Name", each Date.ToText([Date], "dddd"), type text),
+    #"Inserted Day of Week Number" = Table.AddColumn(#"Inserted Day of Week Name", "Day of Week Number", each Date.DayOfWeek([Date], Day.Monday) + 1, Int64.Type),
+    
+    // Add column for Start of Week (starting from Monday)
+    #"Inserted Start of Week" = Table.AddColumn(#"Inserted Day of Week Number", "Start of Week", each Date.StartOfWeek([Date], Day.Monday), type date),
+    
+    // Add columns for Month Name
+    #"Inserted Month Name" = Table.AddColumn(#"Inserted Start of Week", "Month Name", each Date.MonthName([Date]), type text),
+    
+    // Add column for Day of Month
+    #"Inserted Day of Month" = Table.AddColumn(#"Inserted Month Name", "Day of Month", each Date.Day([Date]), Int64.Type),
+    
+    // Add column for Is Weekday (True if Monday-Friday, False otherwise)
+    #"Inserted Is Weekday" = Table.AddColumn(#"Inserted Day of Month", "Is Weekday", each if Date.DayOfWeek([Date], Day.Monday) < 5 then true else false, type logical),
+    
+    // Add column for Is Weekend (True if Saturday or Sunday, False otherwise)
+    #"Inserted Is Weekend" = Table.AddColumn(#"Inserted Is Weekday", "Is Weekend", each not [Is Weekday], type logical),
+    
+    // Add column for Relative Day (from today, 0 = today, -1 = yesterday, etc.)
+    #"Inserted Relative Day" = Table.AddColumn(#"Inserted Is Weekend", "Relative Day", each Duration.Days(Duration.From([Date] - EndDate)), Int64.Type),
+    
+    // Reorder columns for better readability
+    #"Reordered Columns" = Table.ReorderColumns(#"Inserted Relative Day", 
+        {"Date", "Day of Week Name", "Day of Week Number", "Start of Week", 
+         "Month Name", "Day of Month", "Is Weekday", "Is Weekend", "Relative Day"})
+in
+    #"Reordered Columns"
